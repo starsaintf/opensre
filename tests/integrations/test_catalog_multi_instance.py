@@ -159,7 +159,7 @@ def test_local_and_cloud_grafana_share_all_grafana_instances_bucket() -> None:
             {
                 "name": "local",
                 "tags": {"env": "dev"},
-                "credentials": {"endpoint": "http://localhost:3000", "api_key": "local"},
+                "credentials": {"endpoint": "http://localhost:3000", "api_key": "glsa_token"},
             },
             {
                 "name": "prod",
@@ -225,3 +225,39 @@ def test_resolve_effective_integrations_carries_instances_through_pydantic() -> 
     assert [i["name"] for i in all_inst] == ["prod", "staging"]
     assert "config" in all_inst[0]  # shape preserved through Pydantic
     assert "integration_id" in all_inst[0]
+
+
+def test_local_grafana_api_key_is_preserved_in_classifier_output() -> None:
+    """Regression for #2500: local Grafana instances must not have their
+    api_key silently replaced with \"\".  A user with a kube-prometheus-stack
+    or kubectl port-forward setup using a service-account token (glsa_…) must
+    have that token forwarded to every HTTP call; otherwise every request
+    returns 401 Unauthorized."""
+    record = {
+        "id": "local-grafana",
+        "service": "grafana",
+        "status": "active",
+        "credentials": {
+            "endpoint": "http://localhost:3000",
+            "api_key": "glsa_supersecrettoken",
+        },
+    }
+    resolved = classify_integrations([record])
+    assert "grafana_local" in resolved
+    assert resolved["grafana_local"]["api_key"] == "glsa_supersecrettoken", (
+        "api_key must be preserved for authenticated local Grafana instances"
+    )
+
+
+def test_local_grafana_without_api_key_is_still_classified() -> None:
+    """Anonymous local Grafana (no token configured) must still resolve so that
+    read-only local dev setups without auth continue to work."""
+    record = {
+        "id": "local-grafana-anon",
+        "service": "grafana",
+        "status": "active",
+        "credentials": {"endpoint": "http://127.0.0.1:3000"},
+    }
+    resolved = classify_integrations([record])
+    assert "grafana_local" in resolved
+    assert resolved["grafana_local"]["api_key"] == ""

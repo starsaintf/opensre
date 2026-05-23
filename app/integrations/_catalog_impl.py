@@ -220,11 +220,14 @@ def _classify_service_instance(
         if not grafana_config.endpoint:
             return None, None
         if grafana_config.is_local:
-            return {
-                "endpoint": grafana_config.endpoint,
-                "api_key": "",
-                "integration_id": grafana_config.integration_id,
-            }, "grafana_local"
+            # Preserve whatever token the user configured.  The HTTP client
+            # already skips the Authorization header when api_key is empty
+            # (anonymous-localhost setups), so there is no need to force it
+            # to "".  Previously this branch hardcoded api_key="" which
+            # silently discarded any service-account token, causing 401s on
+            # every authenticated local Grafana instance (kube-prometheus-stack,
+            # Docker-Compose stacks, kubectl port-forward, etc.).
+            return grafana_config.model_dump(), "grafana_local"
         if grafana_config.api_key and grafana_config.api_key != "local":
             return grafana_config.model_dump(), "grafana"
         return None, None
