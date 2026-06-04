@@ -179,6 +179,7 @@ def _cmd_agents_bus(session: ReplSession, console: Console) -> bool:
         return True
     except OSError as exc:
         console.print(f"[{ERROR}]bus error:[/] {escape(str(exc))}")
+        session.mark_latest(ok=False, kind="slash")
         return False
     # ``subscribe()`` returned cleanly — the broker closed our connection
     # (e.g. it stopped, or its host process exited). Surface that explicitly

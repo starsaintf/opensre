@@ -119,6 +119,23 @@ class TestAgentsBus:
         assert "Unix-domain socket" in out
         assert sess_obj.history[-1]["ok"] is False
 
+    def test_bus_socket_error_marks_latest_slash_failed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(agents_mod, "bus_supported", lambda: True, raising=False)
+
+        def _raise_socket_error() -> object:
+            raise OSError("socket went away")
+
+        monkeypatch.setattr(agents_mod, "subscribe", _raise_socket_error)
+
+        sess_obj = ReplSession()
+        console, buf = _capture()
+        assert dispatch_slash("/agents bus", sess_obj, console) is False
+
+        assert "bus error" in buf.getvalue()
+        assert sess_obj.history[-1]["ok"] is False
+
 
 class TestAgentsDispatch:
     def test_conflicts_with_empty_event_source_renders_empty_state(self) -> None:
