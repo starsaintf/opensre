@@ -16,6 +16,8 @@ from pydantic import Field, ValidationError, field_validator, model_validator
 from config.constants.llm import (
     AZURE_OPENAI_API_VERSION_ENV,
     AZURE_OPENAI_BASE_URL_ENV,
+    CUSTOM_ANTHROPIC_BASE_URL_ENV,
+    CUSTOM_OPENAI_BASE_URL_ENV,
 )
 from config.llm_auth.auth_method import (
     LLM_AUTH_METHOD_ENV,
@@ -195,6 +197,16 @@ DEFAULT_VERTEX_AI_LOCATION = "us-central1"
 DEFAULT_OLLAMA_MODEL = "llama3.2"
 DEFAULT_OLLAMA_HOST = "http://localhost:11434"
 
+# Custom OpenAI-/Anthropic-compatible gateways: no default model — the user's
+# gateway serves its own model names, so these stay empty and are required at
+# validation time (unlike azure, which has default deployment names).
+CUSTOM_OPENAI_REASONING_MODEL = ""
+CUSTOM_OPENAI_CLASSIFICATION_MODEL = ""
+CUSTOM_OPENAI_TOOLCALL_MODEL = ""
+CUSTOM_ANTHROPIC_REASONING_MODEL = ""
+CUSTOM_ANTHROPIC_CLASSIFICATION_MODEL = ""
+CUSTOM_ANTHROPIC_TOOLCALL_MODEL = ""
+
 LLMProvider = Literal[
     "anthropic",
     "openai",
@@ -207,6 +219,8 @@ LLMProvider = Literal[
     "minimax",
     "groq",
     "azure-openai",
+    "custom-openai",
+    "custom-anthropic",
     "vertex-ai",
     "codex",
     "cursor",
@@ -389,6 +403,38 @@ def _llm_settings_env_payload(provider: str) -> dict[str, object]:
             os.getenv("AZURE_OPENAI_MODEL", AZURE_OPENAI_TOOLCALL_MODEL),
         ).strip()
         or AZURE_OPENAI_TOOLCALL_MODEL,
+        "custom_openai_base_url": os.getenv(CUSTOM_OPENAI_BASE_URL_ENV, "").strip(),
+        "custom_openai_reasoning_model": os.getenv(
+            "CUSTOM_OPENAI_REASONING_MODEL",
+            os.getenv("CUSTOM_OPENAI_MODEL", CUSTOM_OPENAI_REASONING_MODEL),
+        ).strip()
+        or CUSTOM_OPENAI_REASONING_MODEL,
+        "custom_openai_classification_model": os.getenv(
+            "CUSTOM_OPENAI_CLASSIFICATION_MODEL",
+            os.getenv("CUSTOM_OPENAI_MODEL", CUSTOM_OPENAI_CLASSIFICATION_MODEL),
+        ).strip()
+        or CUSTOM_OPENAI_CLASSIFICATION_MODEL,
+        "custom_openai_toolcall_model": os.getenv(
+            "CUSTOM_OPENAI_TOOLCALL_MODEL",
+            os.getenv("CUSTOM_OPENAI_MODEL", CUSTOM_OPENAI_TOOLCALL_MODEL),
+        ).strip()
+        or CUSTOM_OPENAI_TOOLCALL_MODEL,
+        "custom_anthropic_base_url": os.getenv(CUSTOM_ANTHROPIC_BASE_URL_ENV, "").strip(),
+        "custom_anthropic_reasoning_model": os.getenv(
+            "CUSTOM_ANTHROPIC_REASONING_MODEL",
+            os.getenv("CUSTOM_ANTHROPIC_MODEL", CUSTOM_ANTHROPIC_REASONING_MODEL),
+        ).strip()
+        or CUSTOM_ANTHROPIC_REASONING_MODEL,
+        "custom_anthropic_classification_model": os.getenv(
+            "CUSTOM_ANTHROPIC_CLASSIFICATION_MODEL",
+            os.getenv("CUSTOM_ANTHROPIC_MODEL", CUSTOM_ANTHROPIC_CLASSIFICATION_MODEL),
+        ).strip()
+        or CUSTOM_ANTHROPIC_CLASSIFICATION_MODEL,
+        "custom_anthropic_toolcall_model": os.getenv(
+            "CUSTOM_ANTHROPIC_TOOLCALL_MODEL",
+            os.getenv("CUSTOM_ANTHROPIC_MODEL", CUSTOM_ANTHROPIC_TOOLCALL_MODEL),
+        ).strip()
+        or CUSTOM_ANTHROPIC_TOOLCALL_MODEL,
         "bedrock_reasoning_model": os.getenv(
             "BEDROCK_REASONING_MODEL", BEDROCK_REASONING_MODEL
         ).strip()
@@ -470,6 +516,16 @@ class LLMSettings(StrictConfigModel):
     azure_openai_reasoning_model: str = AZURE_OPENAI_REASONING_MODEL
     azure_openai_classification_model: str = AZURE_OPENAI_CLASSIFICATION_MODEL
     azure_openai_toolcall_model: str = AZURE_OPENAI_TOOLCALL_MODEL
+    custom_openai_api_key: str = ""
+    custom_openai_base_url: str = ""
+    custom_openai_reasoning_model: str = CUSTOM_OPENAI_REASONING_MODEL
+    custom_openai_classification_model: str = CUSTOM_OPENAI_CLASSIFICATION_MODEL
+    custom_openai_toolcall_model: str = CUSTOM_OPENAI_TOOLCALL_MODEL
+    custom_anthropic_api_key: str = ""
+    custom_anthropic_base_url: str = ""
+    custom_anthropic_reasoning_model: str = CUSTOM_ANTHROPIC_REASONING_MODEL
+    custom_anthropic_classification_model: str = CUSTOM_ANTHROPIC_CLASSIFICATION_MODEL
+    custom_anthropic_toolcall_model: str = CUSTOM_ANTHROPIC_TOOLCALL_MODEL
     bedrock_reasoning_model: str = BEDROCK_REASONING_MODEL
     bedrock_classification_model: str = BEDROCK_CLASSIFICATION_MODEL
     bedrock_toolcall_model: str = BEDROCK_TOOLCALL_MODEL
@@ -495,6 +551,13 @@ class LLMSettings(StrictConfigModel):
 
         return normalize_azure_openai_base_url(str(value or ""))
 
+    @field_validator("custom_openai_base_url", "custom_anthropic_base_url", mode="before")
+    @classmethod
+    def _normalize_custom_base_url(cls, value: object) -> str:
+        from core.llm.providers.custom_endpoints import normalize_custom_base_url
+
+        return normalize_custom_base_url(str(value or ""))
+
     @field_validator("provider", mode="before")
     @classmethod
     def _normalize_provider(cls, value: object) -> str:
@@ -517,6 +580,28 @@ class LLMSettings(StrictConfigModel):
             raise ValueError(
                 "LLM provider 'azure-openai' requires AZURE_OPENAI_BASE_URL to be set."
             )
+        # Custom gateways have no default base URL or model — both are required
+        # so onboard→investigate fails loudly at config time, not mid-request.
+        if self.provider == "custom-openai":
+            if not self.custom_openai_base_url:
+                raise ValueError(
+                    "LLM provider 'custom-openai' requires CUSTOM_OPENAI_BASE_URL to be set."
+                )
+            if not self.custom_openai_reasoning_model:
+                raise ValueError(
+                    "LLM provider 'custom-openai' requires a model — set CUSTOM_OPENAI_MODEL "
+                    "(or the per-tier CUSTOM_OPENAI_REASONING_MODEL)."
+                )
+        if self.provider == "custom-anthropic":
+            if not self.custom_anthropic_base_url:
+                raise ValueError(
+                    "LLM provider 'custom-anthropic' requires CUSTOM_ANTHROPIC_BASE_URL to be set."
+                )
+            if not self.custom_anthropic_reasoning_model:
+                raise ValueError(
+                    "LLM provider 'custom-anthropic' requires a model — set CUSTOM_ANTHROPIC_MODEL "
+                    "(or the per-tier CUSTOM_ANTHROPIC_REASONING_MODEL)."
+                )
         return self
 
     @classmethod
@@ -718,6 +803,20 @@ OLLAMA_LLM_CONFIG = LLMModelConfig(
     reasoning_model=DEFAULT_OLLAMA_MODEL,
     classification_model=DEFAULT_OLLAMA_MODEL,
     toolcall_model=DEFAULT_OLLAMA_MODEL,
+    max_tokens=DEFAULT_MAX_TOKENS,
+)
+
+CUSTOM_OPENAI_LLM_CONFIG = LLMModelConfig(
+    reasoning_model=CUSTOM_OPENAI_REASONING_MODEL,
+    classification_model=CUSTOM_OPENAI_CLASSIFICATION_MODEL,
+    toolcall_model=CUSTOM_OPENAI_TOOLCALL_MODEL,
+    max_tokens=DEFAULT_MAX_TOKENS,
+)
+
+CUSTOM_ANTHROPIC_LLM_CONFIG = LLMModelConfig(
+    reasoning_model=CUSTOM_ANTHROPIC_REASONING_MODEL,
+    classification_model=CUSTOM_ANTHROPIC_CLASSIFICATION_MODEL,
+    toolcall_model=CUSTOM_ANTHROPIC_TOOLCALL_MODEL,
     max_tokens=DEFAULT_MAX_TOKENS,
 )
 

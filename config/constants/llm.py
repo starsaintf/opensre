@@ -12,3 +12,10 @@ from typing import Final
 AZURE_OPENAI_BASE_URL_ENV: Final[str] = "AZURE_OPENAI_BASE_URL"
 AZURE_OPENAI_API_VERSION_ENV: Final[str] = "AZURE_OPENAI_API_VERSION"
 AZURE_OPENAI_API_KEY_ENV: Final[str] = "AZURE_OPENAI_API_KEY"
+
+# Custom OpenAI-/Anthropic-compatible gateways (LiteLLM proxy, vLLM, LocalAI,
+# internal model gateways). The base URL is user-supplied, not hard-coded.
+CUSTOM_OPENAI_BASE_URL_ENV: Final[str] = "CUSTOM_OPENAI_BASE_URL"
+CUSTOM_OPENAI_API_KEY_ENV: Final[str] = "CUSTOM_OPENAI_API_KEY"
+CUSTOM_ANTHROPIC_BASE_URL_ENV: Final[str] = "CUSTOM_ANTHROPIC_BASE_URL"
+CUSTOM_ANTHROPIC_API_KEY_ENV: Final[str] = "CUSTOM_ANTHROPIC_API_KEY"
