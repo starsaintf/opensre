@@ -101,6 +101,11 @@ def test_per_tier_models_fall_back_to_custom_model(monkeypatch: pytest.MonkeyPat
     monkeypatch.setenv("CUSTOM_OPENAI_BASE_URL", "http://host/v1")
     monkeypatch.setenv("CUSTOM_OPENAI_API_KEY", "k")
     monkeypatch.setenv("CUSTOM_OPENAI_MODEL", "gpt-5.4")
+    # The tier-specific vars must be unset for the fallback-to-MODEL path to be
+    # exercised: a developer's local .env (or ambient env) may otherwise populate
+    # them and mask the fallback this test asserts.
+    monkeypatch.delenv("CUSTOM_OPENAI_REASONING_MODEL", raising=False)
+    monkeypatch.delenv("CUSTOM_OPENAI_CLASSIFICATION_MODEL", raising=False)
     monkeypatch.delenv("CUSTOM_OPENAI_TOOLCALL_MODEL", raising=False)
     from config.config import _llm_settings_env_payload
 
