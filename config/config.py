@@ -17,7 +17,17 @@ from config.constants.llm import (
     AZURE_OPENAI_API_VERSION_ENV,
     AZURE_OPENAI_BASE_URL_ENV,
     CUSTOM_ANTHROPIC_BASE_URL_ENV,
+    CUSTOM_ANTHROPIC_CLASSIFICATION_MODEL_ENV,
+    CUSTOM_ANTHROPIC_MODEL_ENV,
+    CUSTOM_ANTHROPIC_REASONING_MODEL_ENV,
+    CUSTOM_ANTHROPIC_TOOLCALL_MODEL_ENV,
     CUSTOM_OPENAI_BASE_URL_ENV,
+    CUSTOM_OPENAI_CLASSIFICATION_MODEL_ENV,
+    CUSTOM_OPENAI_MODEL_ENV,
+    CUSTOM_OPENAI_REASONING_MODEL_ENV,
+    CUSTOM_OPENAI_TOOLCALL_MODEL_ENV,
+    normalize_anthropic_base_url,
+    normalize_custom_base_url,
 )
 from config.llm_auth.auth_method import (
     LLM_AUTH_METHOD_ENV,
@@ -405,34 +415,34 @@ def _llm_settings_env_payload(provider: str) -> dict[str, object]:
         or AZURE_OPENAI_TOOLCALL_MODEL,
         "custom_openai_base_url": os.getenv(CUSTOM_OPENAI_BASE_URL_ENV, "").strip(),
         "custom_openai_reasoning_model": os.getenv(
-            "CUSTOM_OPENAI_REASONING_MODEL",
-            os.getenv("CUSTOM_OPENAI_MODEL", CUSTOM_OPENAI_REASONING_MODEL),
+            CUSTOM_OPENAI_REASONING_MODEL_ENV,
+            os.getenv(CUSTOM_OPENAI_MODEL_ENV, CUSTOM_OPENAI_REASONING_MODEL),
         ).strip()
         or CUSTOM_OPENAI_REASONING_MODEL,
         "custom_openai_classification_model": os.getenv(
-            "CUSTOM_OPENAI_CLASSIFICATION_MODEL",
-            os.getenv("CUSTOM_OPENAI_MODEL", CUSTOM_OPENAI_CLASSIFICATION_MODEL),
+            CUSTOM_OPENAI_CLASSIFICATION_MODEL_ENV,
+            os.getenv(CUSTOM_OPENAI_MODEL_ENV, CUSTOM_OPENAI_CLASSIFICATION_MODEL),
         ).strip()
         or CUSTOM_OPENAI_CLASSIFICATION_MODEL,
         "custom_openai_toolcall_model": os.getenv(
-            "CUSTOM_OPENAI_TOOLCALL_MODEL",
-            os.getenv("CUSTOM_OPENAI_MODEL", CUSTOM_OPENAI_TOOLCALL_MODEL),
+            CUSTOM_OPENAI_TOOLCALL_MODEL_ENV,
+            os.getenv(CUSTOM_OPENAI_MODEL_ENV, CUSTOM_OPENAI_TOOLCALL_MODEL),
         ).strip()
         or CUSTOM_OPENAI_TOOLCALL_MODEL,
         "custom_anthropic_base_url": os.getenv(CUSTOM_ANTHROPIC_BASE_URL_ENV, "").strip(),
         "custom_anthropic_reasoning_model": os.getenv(
-            "CUSTOM_ANTHROPIC_REASONING_MODEL",
-            os.getenv("CUSTOM_ANTHROPIC_MODEL", CUSTOM_ANTHROPIC_REASONING_MODEL),
+            CUSTOM_ANTHROPIC_REASONING_MODEL_ENV,
+            os.getenv(CUSTOM_ANTHROPIC_MODEL_ENV, CUSTOM_ANTHROPIC_REASONING_MODEL),
         ).strip()
         or CUSTOM_ANTHROPIC_REASONING_MODEL,
         "custom_anthropic_classification_model": os.getenv(
-            "CUSTOM_ANTHROPIC_CLASSIFICATION_MODEL",
-            os.getenv("CUSTOM_ANTHROPIC_MODEL", CUSTOM_ANTHROPIC_CLASSIFICATION_MODEL),
+            CUSTOM_ANTHROPIC_CLASSIFICATION_MODEL_ENV,
+            os.getenv(CUSTOM_ANTHROPIC_MODEL_ENV, CUSTOM_ANTHROPIC_CLASSIFICATION_MODEL),
         ).strip()
         or CUSTOM_ANTHROPIC_CLASSIFICATION_MODEL,
         "custom_anthropic_toolcall_model": os.getenv(
-            "CUSTOM_ANTHROPIC_TOOLCALL_MODEL",
-            os.getenv("CUSTOM_ANTHROPIC_MODEL", CUSTOM_ANTHROPIC_TOOLCALL_MODEL),
+            CUSTOM_ANTHROPIC_TOOLCALL_MODEL_ENV,
+            os.getenv(CUSTOM_ANTHROPIC_MODEL_ENV, CUSTOM_ANTHROPIC_TOOLCALL_MODEL),
         ).strip()
         or CUSTOM_ANTHROPIC_TOOLCALL_MODEL,
         "bedrock_reasoning_model": os.getenv(
@@ -516,12 +526,12 @@ class LLMSettings(StrictConfigModel):
     azure_openai_reasoning_model: str = AZURE_OPENAI_REASONING_MODEL
     azure_openai_classification_model: str = AZURE_OPENAI_CLASSIFICATION_MODEL
     azure_openai_toolcall_model: str = AZURE_OPENAI_TOOLCALL_MODEL
-    custom_openai_api_key: str = ""
+    # Credentials are resolved from the api-key env at client-build time, never
+    # stored on settings — so custom providers carry only base URL + models here.
     custom_openai_base_url: str = ""
     custom_openai_reasoning_model: str = CUSTOM_OPENAI_REASONING_MODEL
     custom_openai_classification_model: str = CUSTOM_OPENAI_CLASSIFICATION_MODEL
     custom_openai_toolcall_model: str = CUSTOM_OPENAI_TOOLCALL_MODEL
-    custom_anthropic_api_key: str = ""
     custom_anthropic_base_url: str = ""
     custom_anthropic_reasoning_model: str = CUSTOM_ANTHROPIC_REASONING_MODEL
     custom_anthropic_classification_model: str = CUSTOM_ANTHROPIC_CLASSIFICATION_MODEL
@@ -554,8 +564,6 @@ class LLMSettings(StrictConfigModel):
     @field_validator("custom_openai_base_url", mode="before")
     @classmethod
     def _normalize_custom_openai_base_url(cls, value: object) -> str:
-        from core.llm.providers.custom_endpoints import normalize_custom_base_url
-
         return normalize_custom_base_url(str(value or ""))
 
     @field_validator("custom_anthropic_base_url", mode="before")
@@ -563,8 +571,6 @@ class LLMSettings(StrictConfigModel):
     def _normalize_custom_anthropic_base_url(cls, value: object) -> str:
         # The Anthropic SDK appends /v1/messages itself, so strip a trailing /v1
         # to avoid /v1/v1/messages (404) when the user mirrors the OpenAI style.
-        from core.llm.providers.custom_endpoints import normalize_anthropic_base_url
-
         return normalize_anthropic_base_url(str(value or ""))
 
     @field_validator("provider", mode="before")

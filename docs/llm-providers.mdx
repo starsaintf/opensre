@@ -252,7 +252,7 @@ Both require the base URL and a model — onboarding and startup fail loudly if 
 
 - **The base URL is used verbatim.** Include the API path yourself (e.g. `/v1` for OpenAI-compatible gateways). OpenSRE never appends a path, so `http://host/v1` stays `http://host/v1` — it does not become `/v1/v1`.
 - **`custom-anthropic` is SDK-only.** It ignores `OPENSRE_LLM_TRANSPORT=litellm` by design and errors if you force it; use `custom-openai` for a LiteLLM-proxied OpenAI-compatible endpoint.
-- Set `LOG_LEVEL=DEBUG` to see the resolved provider, redacted base URL (host only), and model for each call when debugging a gateway.
+- Run with `opensre --debug` (or set `TRACER_VERBOSE=1`) to print the resolved provider, redacted base URL (host only — never a token), and model for each call when debugging a gateway.
 
 Quick setup:
 

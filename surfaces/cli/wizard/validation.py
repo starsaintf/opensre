@@ -53,8 +53,7 @@ def _get_provider_base_url(provider_value: str) -> str | None:
 
         return MINIMAX_BASE_URL
     if provider_value == "custom-openai":
-        from config.constants.llm import CUSTOM_OPENAI_BASE_URL_ENV
-        from core.llm.providers.custom_endpoints import normalize_custom_base_url
+        from config.constants.llm import CUSTOM_OPENAI_BASE_URL_ENV, normalize_custom_base_url
 
         return normalize_custom_base_url(os.getenv(CUSTOM_OPENAI_BASE_URL_ENV, "")) or None
     return None
@@ -153,12 +152,9 @@ def validate_provider_credentials(
             if provider.value == "custom-anthropic":
                 # Point the probe at the user's gateway, not api.anthropic.com,
                 # so a "validated" result reflects the endpoint investigate uses.
-                from config.constants.llm import CUSTOM_ANTHROPIC_BASE_URL_ENV
-                from core.llm.providers.custom_endpoints import normalize_anthropic_base_url
+                from core.llm.providers.custom_endpoints import custom_anthropic_probe_base_url
 
-                anthropic_base_url = normalize_anthropic_base_url(
-                    os.getenv(CUSTOM_ANTHROPIC_BASE_URL_ENV, "")
-                )
+                anthropic_base_url = custom_anthropic_probe_base_url()
                 if anthropic_base_url:
                     anthropic_kwargs["base_url"] = anthropic_base_url
             anthropic_client = anthropic_client_cls(**anthropic_kwargs)

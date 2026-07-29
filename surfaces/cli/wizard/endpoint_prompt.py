@@ -4,12 +4,13 @@ Some providers need a user-supplied endpoint before the validation probe can
 run: Azure OpenAI (a resource URL) and the custom OpenAI-/Anthropic-compatible
 gateways (an arbitrary base URL). The onboarding flow calls
 :func:`ensure_endpoint_settings` for every provider right before validating the
-credential; providers that need no endpoint return an empty dict.
+credential; providers that need no endpoint return an empty dict. Provider-specific
+prompting lives in the owning modules (``azure_openai``/``custom_endpoints``);
+this file is a thin dispatcher.
 """
 
 from __future__ import annotations
 
-import os
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -30,55 +31,7 @@ def ensure_endpoint_settings(provider: ProviderOption) -> dict[str, str] | None:
 
         return _azure(provider)
     if is_custom_provider(provider.value):
-        return _ensure_custom_endpoint(provider)
+        from surfaces.cli.wizard.custom_endpoints import ensure_endpoint_settings as _custom
+
+        return _custom(provider)
     return {}
-
-
-def _custom_base_url_normalizer(provider: ProviderOption):
-    """Return the base-URL normalizer for a custom provider.
-
-    custom-anthropic uses the Anthropic-SDK normalizer (strips a trailing /v1,
-    since the SDK appends /v1/messages); custom-openai keeps its /v1 verbatim.
-    """
-    from core.llm.providers.custom_endpoints import (
-        is_custom_anthropic_provider,
-        normalize_anthropic_base_url,
-        normalize_custom_base_url,
-    )
-
-    if is_custom_anthropic_provider(provider.value):
-        return normalize_anthropic_base_url
-    return normalize_custom_base_url
-
-
-def _ensure_custom_endpoint(provider: ProviderOption) -> dict[str, str] | None:
-    """Return the custom gateway base URL, prompting when it isn't set yet."""
-    if not provider.endpoint_env:
-        return {}
-    normalize = _custom_base_url_normalizer(provider)
-    configured = normalize(os.getenv(provider.endpoint_env, ""))
-    if configured:
-        return {provider.endpoint_env: configured}
-    return _prompt_custom_endpoint(provider)
-
-
-def _prompt_custom_endpoint(provider: ProviderOption) -> dict[str, str] | None:
-    from platform.terminal.theme import ERROR
-    from surfaces.cli.wizard._ui import WizardBack, _console, _prompt_value, _step
-
-    normalize = _custom_base_url_normalizer(provider)
-    _step("Endpoint")
-    try:
-        raw = _prompt_value(
-            f"Base URL ({provider.endpoint_env})",
-            default=os.getenv(provider.endpoint_env, provider.credential_default),
-            secret=False,
-            back_on_cancel=True,
-        )
-    except WizardBack:
-        return None
-    normalized = normalize(raw)
-    if not normalized:
-        _console.print(f"[{ERROR}]A base URL is required for this provider.[/]")
-        return None
-    return {provider.endpoint_env: normalized}

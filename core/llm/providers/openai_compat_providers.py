@@ -22,6 +22,7 @@ from config.config import (
     OPENROUTER_LLM_CONFIG,
     LLMModelConfig,
 )
+from config.constants.llm import CUSTOM_OPENAI_API_KEY_ENV
 from core.llm.types import ModelType
 
 
@@ -100,7 +101,7 @@ OPENAI_COMPATIBLE_PROVIDERS: Final[dict[str, OpenAICompatProvider]] = {
     "custom-openai": OpenAICompatProvider(
         CUSTOM_OPENAI_LLM_CONFIG,
         None,
-        "CUSTOM_OPENAI_API_KEY",
+        CUSTOM_OPENAI_API_KEY_ENV,
         "custom_openai",
     ),
 }
