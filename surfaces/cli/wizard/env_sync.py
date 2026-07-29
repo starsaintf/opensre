@@ -168,14 +168,27 @@ def sync_provider_env(
 
     lines = _remove_keys(existing, keys_to_remove)
 
+    # Custom gateways ship no default model (the user's gateway serves its own
+    # names). A switch/restore that supplies no model must NOT blank a
+    # previously-working one — mirror the base-URL guard below and preserve the
+    # configured model instead of writing an empty CUSTOM_*_MODEL that would fail
+    # the required-model validation on the next load. A CLI provider keeps writing
+    # an empty model (its CLI default), so scope this strictly to custom gateways.
+    resolved_model = model
+    if not resolved_model and is_custom_provider(provider.value):
+        resolved_model = (
+            _env_value_from_lines(lines, resolved_model_provider.model_env)
+            or os.getenv(resolved_model_provider.model_env, "").strip()
+        )
+
     values: dict[str, str] = {
         "LLM_PROVIDER": provider.value,
-        resolved_model_provider.model_env: model,
+        resolved_model_provider.model_env: resolved_model,
     }
     if auth_method:
         values[LLM_AUTH_METHOD_ENV] = auth_method
     if resolved_model_provider.legacy_model_env:
-        values[resolved_model_provider.legacy_model_env] = model
+        values[resolved_model_provider.legacy_model_env] = resolved_model
     if toolcall_model and resolved_model_provider.toolcall_model_env:
         values[resolved_model_provider.toolcall_model_env] = toolcall_model
     if provider.value == "azure-openai":
@@ -210,7 +223,7 @@ def sync_provider_env(
     os.environ.update(values)
     _sync_llm_selection_to_store(
         provider=provider,
-        model=model,
+        model=resolved_model,
         model_provider=resolved_model_provider,
         auth_method=auth_method,
     )
