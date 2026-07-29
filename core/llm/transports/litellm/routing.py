@@ -140,11 +140,14 @@ def build_litellm_llm_client(
 
     if is_openai_compat_provider(provider):
         compat = resolve_openai_compat_provider(settings, provider, model_type)
-        raw_fallback = _fallback(provider)
+        # Resolve the toolcall fallback via the compat path (settings_prefix
+        # aware) rather than _fallback(provider): the raw slug can be hyphenated
+        # (custom-openai), which getattr would never match.
         fallback_model: str | None = None
-        if raw_fallback:
+        if model_type != "toolcall":
             fallback_compat = resolve_openai_compat_provider(settings, provider, "toolcall")
-            fallback_model = _litellm_model_for_compat(fallback_compat.model)
+            if fallback_compat.model:
+                fallback_model = _litellm_model_for_compat(fallback_compat.model)
         return LiteLLMLLMClient(
             litellm_model=_litellm_model_for_compat(compat.model),
             model_fallback=fallback_model,

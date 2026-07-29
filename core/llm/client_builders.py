@@ -143,9 +143,16 @@ def _native_sdk_llm_client(route: LLMRoute, model_type: ModelType) -> Any:
 
     if is_openai_compat_provider(provider):
         compat = resolve_openai_compat_provider(settings, provider, model_type)
+        # Resolve the toolcall fallback via the compat path (settings_prefix
+        # aware) rather than _fallback_model(provider): the raw slug can be
+        # hyphenated (custom-openai), which getattr would never match.
+        fallback_model: str | None = None
+        if model_type != "toolcall":
+            toolcall = resolve_openai_compat_provider(settings, provider, "toolcall")
+            fallback_model = toolcall.model or None
         return sdk.OpenAILLMClient(
             model=compat.model,
-            model_fallback=_fallback_model(provider),
+            model_fallback=fallback_model,
             max_tokens=compat.config.max_tokens,
             base_url=compat.base_url,
             api_key_env=compat.api_key_env,

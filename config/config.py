@@ -587,20 +587,34 @@ class LLMSettings(StrictConfigModel):
                 raise ValueError(
                     "LLM provider 'custom-openai' requires CUSTOM_OPENAI_BASE_URL to be set."
                 )
-            if not self.custom_openai_reasoning_model:
+            if not all(
+                (
+                    self.custom_openai_reasoning_model,
+                    self.custom_openai_classification_model,
+                    self.custom_openai_toolcall_model,
+                )
+            ):
                 raise ValueError(
                     "LLM provider 'custom-openai' requires a model — set CUSTOM_OPENAI_MODEL "
-                    "(or the per-tier CUSTOM_OPENAI_REASONING_MODEL)."
+                    "(applied to every tier) or all three CUSTOM_OPENAI_"
+                    "{REASONING,CLASSIFICATION,TOOLCALL}_MODEL."
                 )
         if self.provider == "custom-anthropic":
             if not self.custom_anthropic_base_url:
                 raise ValueError(
                     "LLM provider 'custom-anthropic' requires CUSTOM_ANTHROPIC_BASE_URL to be set."
                 )
-            if not self.custom_anthropic_reasoning_model:
+            if not all(
+                (
+                    self.custom_anthropic_reasoning_model,
+                    self.custom_anthropic_classification_model,
+                    self.custom_anthropic_toolcall_model,
+                )
+            ):
                 raise ValueError(
                     "LLM provider 'custom-anthropic' requires a model — set CUSTOM_ANTHROPIC_MODEL "
-                    "(or the per-tier CUSTOM_ANTHROPIC_REASONING_MODEL)."
+                    "(applied to every tier) or all three CUSTOM_ANTHROPIC_"
+                    "{REASONING,CLASSIFICATION,TOOLCALL}_MODEL."
                 )
         return self
 
