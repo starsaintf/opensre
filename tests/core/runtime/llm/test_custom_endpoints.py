@@ -255,3 +255,44 @@ def test_resolve_provider_models_returns_custom_model_not_default() -> None:
     reasoning, toolcall = resolve_provider_models(_openai_settings(), "custom-openai")
     assert reasoning == "gpt-5.4"
     assert toolcall == "gpt-5.4-mini"
+
+
+# --------------------------------------------------------------------------- #
+# Chat-completions tool-arg coercion (found via the live demo: some gateways/
+# models emit `arguments: "null"` for a no-arg tool, which must not become None)
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("raw_arguments", ["null", '"a string"', "[1, 2]", "", "  "])
+def test_parse_tool_calls_coerces_non_object_arguments_to_empty_dict(raw_arguments: str) -> None:
+    from types import SimpleNamespace
+
+    from core.llm.shared.openai_chat_completions import parse_tool_calls
+
+    message = SimpleNamespace(
+        tool_calls=[
+            SimpleNamespace(
+                id="call_1",
+                function=SimpleNamespace(name="get_status", arguments=raw_arguments),
+            )
+        ]
+    )
+    calls = parse_tool_calls(message)
+    assert len(calls) == 1
+    assert calls[0].input == {}  # never None / never a non-dict
+
+
+def test_parse_tool_calls_preserves_object_arguments() -> None:
+    from types import SimpleNamespace
+
+    from core.llm.shared.openai_chat_completions import parse_tool_calls
+
+    message = SimpleNamespace(
+        tool_calls=[
+            SimpleNamespace(
+                id="c1",
+                function=SimpleNamespace(name="q", arguments='{"region": "us-east-1"}'),
+            )
+        ]
+    )
+    assert parse_tool_calls(message)[0].input == {"region": "us-east-1"}
