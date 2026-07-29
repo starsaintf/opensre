@@ -154,9 +154,9 @@ def validate_provider_credentials(
                 # Point the probe at the user's gateway, not api.anthropic.com,
                 # so a "validated" result reflects the endpoint investigate uses.
                 from config.constants.llm import CUSTOM_ANTHROPIC_BASE_URL_ENV
-                from core.llm.providers.custom_endpoints import normalize_custom_base_url
+                from core.llm.providers.custom_endpoints import normalize_anthropic_base_url
 
-                anthropic_base_url = normalize_custom_base_url(
+                anthropic_base_url = normalize_anthropic_base_url(
                     os.getenv(CUSTOM_ANTHROPIC_BASE_URL_ENV, "")
                 )
                 if anthropic_base_url:

@@ -205,3 +205,53 @@ def test_redact_base_url_drops_path_and_query() -> None:
     assert redact_base_url("https://gw.example.com/v1/secret-token") == "https://gw.example.com"
     assert redact_base_url("http://localhost:4000/v1?key=abc") == "http://localhost:4000"
     assert redact_base_url("") == "(unset)"
+
+
+# --------------------------------------------------------------------------- #
+# custom-anthropic /v1 handling — the Anthropic SDK appends /v1/messages itself
+# --------------------------------------------------------------------------- #
+
+
+def test_anthropic_base_url_strips_trailing_v1() -> None:
+    from core.llm.providers.custom_endpoints import normalize_anthropic_base_url
+
+    # A trailing /v1 (the OpenAI convention) is stripped so the SDK's own
+    # /v1/messages is not doubled; a deeper passthrough path is preserved.
+    assert (
+        normalize_anthropic_base_url("https://proxy.example.com/v1") == "https://proxy.example.com"
+    )
+    assert (
+        normalize_anthropic_base_url("https://proxy.example.com/v1/") == "https://proxy.example.com"
+    )
+    assert normalize_anthropic_base_url("https://proxy.example.com/anthropic") == (
+        "https://proxy.example.com/anthropic"
+    )
+
+
+def test_config_strips_v1_from_custom_anthropic_base_url() -> None:
+    s = _anthropic_settings(custom_anthropic_base_url="https://proxy.example.com/v1")
+    assert s.custom_anthropic_base_url == "https://proxy.example.com"
+
+
+def test_custom_anthropic_client_never_doubles_v1() -> None:
+    # End-to-end: a /v1-style base URL must not reach the SDK as /v1, or the
+    # joined request URL becomes /v1/v1/messages (404).
+    s = _anthropic_settings(custom_anthropic_base_url="https://proxy.example.com/v1")
+    client = build_reasoning_client(_route(s), "reasoning")
+    joined = str(client._client.base_url)
+    assert "/v1/v1" not in joined
+    assert joined.rstrip("/") == "https://proxy.example.com"
+
+
+def test_redact_base_url_drops_userinfo() -> None:
+    # A token embedded as userinfo must never reach the log.
+    assert redact_base_url("https://s3cr3t-token@gw.example.com/v1") == "https://gw.example.com"
+    assert redact_base_url("https://user:pass@host:8443/v1") == "https://host:8443"
+
+
+def test_resolve_provider_models_returns_custom_model_not_default() -> None:
+    from core.agent_harness.llm_resolution import resolve_provider_models
+
+    reasoning, toolcall = resolve_provider_models(_openai_settings(), "custom-openai")
+    assert reasoning == "gpt-5.4"
+    assert toolcall == "gpt-5.4-mini"

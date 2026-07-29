@@ -34,23 +34,39 @@ def ensure_endpoint_settings(provider: ProviderOption) -> dict[str, str] | None:
     return {}
 
 
+def _custom_base_url_normalizer(provider: ProviderOption):
+    """Return the base-URL normalizer for a custom provider.
+
+    custom-anthropic uses the Anthropic-SDK normalizer (strips a trailing /v1,
+    since the SDK appends /v1/messages); custom-openai keeps its /v1 verbatim.
+    """
+    from core.llm.providers.custom_endpoints import (
+        is_custom_anthropic_provider,
+        normalize_anthropic_base_url,
+        normalize_custom_base_url,
+    )
+
+    if is_custom_anthropic_provider(provider.value):
+        return normalize_anthropic_base_url
+    return normalize_custom_base_url
+
+
 def _ensure_custom_endpoint(provider: ProviderOption) -> dict[str, str] | None:
     """Return the custom gateway base URL, prompting when it isn't set yet."""
-    from core.llm.providers.custom_endpoints import normalize_custom_base_url
-
     if not provider.endpoint_env:
         return {}
-    configured = normalize_custom_base_url(os.getenv(provider.endpoint_env, ""))
+    normalize = _custom_base_url_normalizer(provider)
+    configured = normalize(os.getenv(provider.endpoint_env, ""))
     if configured:
         return {provider.endpoint_env: configured}
     return _prompt_custom_endpoint(provider)
 
 
 def _prompt_custom_endpoint(provider: ProviderOption) -> dict[str, str] | None:
-    from core.llm.providers.custom_endpoints import normalize_custom_base_url
     from platform.terminal.theme import ERROR
     from surfaces.cli.wizard._ui import WizardBack, _console, _prompt_value, _step
 
+    normalize = _custom_base_url_normalizer(provider)
     _step("Endpoint")
     try:
         raw = _prompt_value(
@@ -61,7 +77,7 @@ def _prompt_custom_endpoint(provider: ProviderOption) -> dict[str, str] | None:
         )
     except WizardBack:
         return None
-    normalized = normalize_custom_base_url(raw)
+    normalized = normalize(raw)
     if not normalized:
         _console.print(f"[{ERROR}]A base URL is required for this provider.[/]")
         return None

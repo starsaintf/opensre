@@ -75,6 +75,7 @@ def _native_sdk_agent_client(route: LLMRoute) -> AgentLLMClient:
 
     if is_custom_anthropic_provider(provider):
         from config.config import CUSTOM_ANTHROPIC_LLM_CONFIG
+        from config.constants.llm import CUSTOM_ANTHROPIC_API_KEY_ENV
         from core.llm.providers.custom_endpoints import (
             custom_base_url,
             log_endpoint_resolution,
@@ -88,7 +89,7 @@ def _native_sdk_agent_client(route: LLMRoute) -> AgentLLMClient:
             model=model,
             max_tokens=CUSTOM_ANTHROPIC_LLM_CONFIG.max_tokens,
             base_url=base_url,
-            api_key_env="CUSTOM_ANTHROPIC_API_KEY",
+            api_key_env=CUSTOM_ANTHROPIC_API_KEY_ENV,
         )
 
     spec = FIRST_PARTY_PROVIDERS.get(provider) or FIRST_PARTY_PROVIDERS[PROVIDER_ANTHROPIC]
@@ -182,6 +183,7 @@ def _native_sdk_llm_client(route: LLMRoute, model_type: ModelType) -> Any:
 
     if is_custom_anthropic_provider(provider):
         from config.config import CUSTOM_ANTHROPIC_LLM_CONFIG
+        from config.constants.llm import CUSTOM_ANTHROPIC_API_KEY_ENV
         from core.llm.providers.custom_endpoints import (
             custom_base_url,
             log_endpoint_resolution,
@@ -195,7 +197,7 @@ def _native_sdk_llm_client(route: LLMRoute, model_type: ModelType) -> Any:
             model=model,
             max_tokens=CUSTOM_ANTHROPIC_LLM_CONFIG.max_tokens,
             base_url=base_url,
-            api_key_env="CUSTOM_ANTHROPIC_API_KEY",
+            api_key_env=CUSTOM_ANTHROPIC_API_KEY_ENV,
         )
 
     spec = FIRST_PARTY_PROVIDERS.get(provider) or FIRST_PARTY_PROVIDERS[PROVIDER_ANTHROPIC]

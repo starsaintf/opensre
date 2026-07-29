@@ -551,12 +551,21 @@ class LLMSettings(StrictConfigModel):
 
         return normalize_azure_openai_base_url(str(value or ""))
 
-    @field_validator("custom_openai_base_url", "custom_anthropic_base_url", mode="before")
+    @field_validator("custom_openai_base_url", mode="before")
     @classmethod
-    def _normalize_custom_base_url(cls, value: object) -> str:
+    def _normalize_custom_openai_base_url(cls, value: object) -> str:
         from core.llm.providers.custom_endpoints import normalize_custom_base_url
 
         return normalize_custom_base_url(str(value or ""))
+
+    @field_validator("custom_anthropic_base_url", mode="before")
+    @classmethod
+    def _normalize_custom_anthropic_base_url(cls, value: object) -> str:
+        # The Anthropic SDK appends /v1/messages itself, so strip a trailing /v1
+        # to avoid /v1/v1/messages (404) when the user mirrors the OpenAI style.
+        from core.llm.providers.custom_endpoints import normalize_anthropic_base_url
+
+        return normalize_anthropic_base_url(str(value or ""))
 
     @field_validator("provider", mode="before")
     @classmethod

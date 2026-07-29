@@ -49,14 +49,17 @@ def is_custom_provider(provider: str) -> bool:
 
 
 def normalize_custom_base_url(value: str) -> str:
-    """Normalize a user-supplied gateway base URL — exactly once.
+    """Normalize a user-supplied gateway base URL.
 
-    Strips surrounding whitespace and a single trailing slash so downstream
-    clients that append operation paths (e.g. ``/chat/completions``) never
-    produce a doubled ``/v1/v1``. A missing scheme defaults to ``http://`` for
-    loopback hosts (local LiteLLM/vLLM) and ``https://`` otherwise. Any path the
-    user supplies (e.g. ``/v1``) is preserved verbatim and never appended to,
-    matching how the OpenAI-compatible and Anthropic clients join routes.
+    Strips surrounding whitespace and a single trailing slash. A missing scheme
+    defaults to ``http://`` for loopback hosts (local LiteLLM/vLLM) and
+    ``https://`` otherwise. Any path the user supplies (e.g. ``/v1``) is
+    preserved verbatim — the OpenAI-compatible client appends ``/chat/completions``
+    to it, so the ``/v1`` the user provides is used exactly once.
+
+    Note: the Anthropic SDK appends ``/v1/messages`` itself, so a base URL for
+    ``custom-anthropic`` must NOT keep a trailing ``/v1`` — use
+    :func:`normalize_anthropic_base_url` for that route.
     """
     base = (value or "").strip()
     if not base:
@@ -66,6 +69,21 @@ def normalize_custom_base_url(value: str) -> str:
         scheme = "http" if host in _LOOPBACK_HOSTS else "https"
         base = f"{scheme}://{base}"
     return base.rstrip("/")
+
+
+def normalize_anthropic_base_url(value: str) -> str:
+    """Base URL for the Anthropic SDK, which appends ``/v1/messages`` itself.
+
+    Strips a single trailing ``/v1`` so a base URL that mirrors the OpenAI
+    ``/v1`` convention (natural for a shared LiteLLM/vLLM proxy) does not become
+    ``/v1/v1/messages`` — a silent 404. A deeper passthrough path (e.g.
+    ``.../anthropic``) is preserved so the SDK correctly builds
+    ``.../anthropic/v1/messages``.
+    """
+    base = normalize_custom_base_url(value)
+    if base.endswith("/v1"):
+        base = base[: -len("/v1")]
+    return base
 
 
 def custom_settings_prefix(provider: str) -> str:
@@ -88,15 +106,20 @@ def custom_base_url(settings: Any, provider: str) -> str:
 
 
 def redact_base_url(base_url: str) -> str:
-    """Return ``scheme://host[:port]`` only, dropping any path/query.
+    """Return ``scheme://host[:port]`` only, dropping path, query, and userinfo.
 
-    Custom gateway URLs are user-supplied and can carry a token in the path or
-    query; diagnostics log the host only so a debug line never leaks a secret.
+    Custom gateway URLs are user-supplied and can carry a token in the path,
+    query, or ``user:pass@`` userinfo; diagnostics log the host only so a debug
+    line never leaks a secret.
     """
     parts = urlsplit(base_url)
-    if not parts.netloc:
+    host = parts.hostname or ""
+    if not host:
         return "(unset)"
-    return f"{parts.scheme}://{parts.netloc}"
+    if ":" in host:  # bracket an IPv6 literal
+        host = f"[{host}]"
+    netloc = host if parts.port is None else f"{host}:{parts.port}"
+    return f"{parts.scheme}://{netloc}"
 
 
 def log_endpoint_resolution(
