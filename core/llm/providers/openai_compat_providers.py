@@ -141,9 +141,14 @@ def resolve_openai_compat_provider(
         base_url = settings.custom_openai_base_url
     if not base_url:
         raise RuntimeError(f"OpenAI-compatible provider '{provider}' is missing a base URL.")
+    model = select_compat_model(settings, provider, model_type)
+    if provider == "custom-openai":
+        from core.llm.providers.custom_endpoints import log_endpoint_resolution
+
+        log_endpoint_resolution(provider, base_url, model, model_type)
     return ResolvedOpenAICompatProvider(
         name=provider,
-        model=select_compat_model(settings, provider, model_type),
+        model=model,
         config=spec.config,
         base_url=base_url,
         api_key_env=spec.api_key_env,

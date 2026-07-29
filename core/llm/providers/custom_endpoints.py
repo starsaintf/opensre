@@ -14,9 +14,13 @@ is fixed by the provider slug, not by the endpoint.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
+from urllib.parse import urlsplit
 
 from core.llm.types import ModelType
+
+logger = logging.getLogger(__name__)
 
 CUSTOM_OPENAI_PROVIDER = "custom-openai"
 CUSTOM_ANTHROPIC_PROVIDER = "custom-anthropic"
@@ -81,3 +85,33 @@ def custom_base_url(settings: Any, provider: str) -> str:
     """Return the configured base URL for a custom provider."""
     prefix = custom_settings_prefix(provider)
     return str(getattr(settings, f"{prefix}_base_url"))
+
+
+def redact_base_url(base_url: str) -> str:
+    """Return ``scheme://host[:port]`` only, dropping any path/query.
+
+    Custom gateway URLs are user-supplied and can carry a token in the path or
+    query; diagnostics log the host only so a debug line never leaks a secret.
+    """
+    parts = urlsplit(base_url)
+    if not parts.netloc:
+        return "(unset)"
+    return f"{parts.scheme}://{parts.netloc}"
+
+
+def log_endpoint_resolution(
+    provider: str, base_url: str, model: str, model_type: ModelType
+) -> None:
+    """Emit a redacted DEBUG line so custom-gateway failures are diagnosable.
+
+    Surfaces the resolved provider, redacted base URL, model, and tier for each
+    LLM client build — custom endpoints otherwise fail in hard-to-debug ways
+    when only the model name is visible.
+    """
+    logger.debug(
+        "custom LLM endpoint resolved: provider=%s base_url=%s model=%s tier=%s",
+        provider,
+        redact_base_url(base_url),
+        model,
+        model_type,
+    )

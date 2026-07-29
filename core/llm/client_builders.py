@@ -75,12 +75,19 @@ def _native_sdk_agent_client(route: LLMRoute) -> AgentLLMClient:
 
     if is_custom_anthropic_provider(provider):
         from config.config import CUSTOM_ANTHROPIC_LLM_CONFIG
-        from core.llm.providers.custom_endpoints import custom_base_url, select_custom_model
+        from core.llm.providers.custom_endpoints import (
+            custom_base_url,
+            log_endpoint_resolution,
+            select_custom_model,
+        )
 
+        model = select_custom_model(settings, provider, "reasoning")
+        base_url = custom_base_url(settings, provider)
+        log_endpoint_resolution(provider, base_url, model, "reasoning")
         return sdk.AnthropicAgentClient(
-            model=select_custom_model(settings, provider, "reasoning"),
+            model=model,
             max_tokens=CUSTOM_ANTHROPIC_LLM_CONFIG.max_tokens,
-            base_url=custom_base_url(settings, provider),
+            base_url=base_url,
             api_key_env="CUSTOM_ANTHROPIC_API_KEY",
         )
 
@@ -175,12 +182,19 @@ def _native_sdk_llm_client(route: LLMRoute, model_type: ModelType) -> Any:
 
     if is_custom_anthropic_provider(provider):
         from config.config import CUSTOM_ANTHROPIC_LLM_CONFIG
-        from core.llm.providers.custom_endpoints import custom_base_url, select_custom_model
+        from core.llm.providers.custom_endpoints import (
+            custom_base_url,
+            log_endpoint_resolution,
+            select_custom_model,
+        )
 
+        model = select_custom_model(settings, provider, model_type)
+        base_url = custom_base_url(settings, provider)
+        log_endpoint_resolution(provider, base_url, model, model_type)
         return sdk.LLMClient(
-            model=select_custom_model(settings, provider, model_type),
+            model=model,
             max_tokens=CUSTOM_ANTHROPIC_LLM_CONFIG.max_tokens,
-            base_url=custom_base_url(settings, provider),
+            base_url=base_url,
             api_key_env="CUSTOM_ANTHROPIC_API_KEY",
         )
 
