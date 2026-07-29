@@ -92,6 +92,18 @@ def switch_llm_provider(
                 "set AZURE_OPENAI_BASE_URL, or run [bold]opensre onboard[/bold]."
             )
             return False
+    from core.llm.providers.custom_endpoints import is_custom_provider
+
+    if (
+        is_custom_provider(provider.value)
+        and provider.endpoint_env
+        and not os.getenv(provider.endpoint_env, "").strip()
+    ):
+        console.print(
+            f"[{ERROR}]missing base URL for {provider.value}:[/] "
+            f"set {provider.endpoint_env}, or run [bold]opensre onboard[/bold]."
+        )
+        return False
     if provider.credential_secret and provider.api_key_env and not auth_status.configured:
         console.print(
             f"[{ERROR}]missing credential for {provider.value}:[/] "

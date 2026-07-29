@@ -150,11 +150,15 @@ def sync_provider_env(
     classification_env = _classification_model_env(resolved_model_provider)
     if classification_env:
         active_non_secret.add(classification_env)
-    if provider.value == "azure-openai":
-        if provider.endpoint_env:
-            active_non_secret.add(provider.endpoint_env)
-        if provider.api_version_env:
-            active_non_secret.add(provider.api_version_env)
+    from core.llm.providers.custom_endpoints import is_custom_provider
+
+    # Providers that carry a user-supplied endpoint (Azure + the custom gateways)
+    # keep their base URL in .env; without this it is stripped on the next sync.
+    provider_has_endpoint = provider.value == "azure-openai" or is_custom_provider(provider.value)
+    if provider_has_endpoint and provider.endpoint_env:
+        active_non_secret.add(provider.endpoint_env)
+    if provider.value == "azure-openai" and provider.api_version_env:
+        active_non_secret.add(provider.api_version_env)
     # A ``host`` credential (e.g. the Ollama host) is non-secret runtime config
     # that the wizard persists to ``.env`` — keep it as an active key so this
     # sync does not strip it back out in the same wizard run.
@@ -175,18 +179,20 @@ def sync_provider_env(
     if toolcall_model and resolved_model_provider.toolcall_model_env:
         values[resolved_model_provider.toolcall_model_env] = toolcall_model
     if provider.value == "azure-openai":
+        # Azure forces the LiteLLM transport; the custom gateways stay on the
+        # native SDK, so they must NOT write LLM_TRANSPORT_ENV.
         values[LLM_TRANSPORT_ENV] = "litellm"
         if provider.api_version_env:
             from core.llm.providers.azure_openai import resolve_azure_openai_api_version
 
             values[provider.api_version_env] = resolve_azure_openai_api_version()
-        if provider.endpoint_env:
-            preserved_base = (
-                _env_value_from_lines(lines, provider.endpoint_env)
-                or os.getenv(provider.endpoint_env, "").strip()
-            )
-            if preserved_base:
-                values[provider.endpoint_env] = preserved_base
+    if provider_has_endpoint and provider.endpoint_env:
+        preserved_base = (
+            _env_value_from_lines(lines, provider.endpoint_env)
+            or os.getenv(provider.endpoint_env, "").strip()
+        )
+        if preserved_base:
+            values[provider.endpoint_env] = preserved_base
     if extra_env:
         values.update(extra_env)
 
