@@ -681,3 +681,24 @@ def test_sync_env_values_empty_update_strips_fallback_secrets(tmp_path) -> None:
     sync_env_values({}, env_path=env_path)
 
     assert env_path.read_text(encoding="utf-8") == ""
+
+
+def test_sync_provider_env_preserves_custom_openai_base_url(tmp_path, monkeypatch) -> None:
+    # The custom gateway base URL must survive the sync (not be stripped), and
+    # custom providers must NOT get azure's OPENSRE_LLM_TRANSPORT=litellm flag.
+    monkeypatch.delenv("LLM_PROVIDER", raising=False)
+    monkeypatch.setenv("CUSTOM_OPENAI_BASE_URL", "http://localhost:4000/v1")
+    env_path = tmp_path / ".env"
+    env_path.write_text("ENV=development\n", encoding="utf-8")
+
+    sync_provider_env(
+        provider=PROVIDER_BY_VALUE["custom-openai"],
+        model="gpt-5.4",
+        env_path=env_path,
+    )
+
+    content = env_path.read_text(encoding="utf-8")
+    assert "LLM_PROVIDER=custom-openai\n" in content
+    assert "CUSTOM_OPENAI_BASE_URL=http://localhost:4000/v1\n" in content
+    assert "CUSTOM_OPENAI_REASONING_MODEL=gpt-5.4\n" in content
+    assert "OPENSRE_LLM_TRANSPORT" not in content
