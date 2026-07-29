@@ -11,8 +11,9 @@ from __future__ import annotations
 import pytest
 
 from config.config import LLMSettings
+from config.constants.llm import normalize_custom_base_url
 from core.llm.client_builders import build_agent_client, build_reasoning_client
-from core.llm.providers.custom_endpoints import normalize_custom_base_url, redact_base_url
+from core.llm.providers.custom_endpoints import redact_base_url
 from core.llm.transports.litellm.routing import (
     build_litellm_agent_client,
     build_litellm_llm_client,
@@ -218,7 +219,7 @@ def test_redact_base_url_drops_path_and_query() -> None:
 
 
 def test_anthropic_base_url_strips_trailing_v1() -> None:
-    from core.llm.providers.custom_endpoints import normalize_anthropic_base_url
+    from config.constants.llm import normalize_anthropic_base_url
 
     # A trailing /v1 (the OpenAI convention) is stripped so the SDK's own
     # /v1/messages is not doubled; a deeper passthrough path is preserved.
