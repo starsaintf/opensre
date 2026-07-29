@@ -156,9 +156,11 @@ def validate_provider_credentials(
                 from config.constants.llm import CUSTOM_ANTHROPIC_BASE_URL_ENV
                 from core.llm.providers.custom_endpoints import normalize_custom_base_url
 
-                base_url = normalize_custom_base_url(os.getenv(CUSTOM_ANTHROPIC_BASE_URL_ENV, ""))
-                if base_url:
-                    anthropic_kwargs["base_url"] = base_url
+                anthropic_base_url = normalize_custom_base_url(
+                    os.getenv(CUSTOM_ANTHROPIC_BASE_URL_ENV, "")
+                )
+                if anthropic_base_url:
+                    anthropic_kwargs["base_url"] = anthropic_base_url
             anthropic_client = anthropic_client_cls(**anthropic_kwargs)
             anthropic_response = anthropic_client.messages.create(
                 model=model,
