@@ -20,6 +20,10 @@ AZURE_OPENAI_BASE_URL_ENV: Final[str] = "AZURE_OPENAI_BASE_URL"
 AZURE_OPENAI_API_VERSION_ENV: Final[str] = "AZURE_OPENAI_API_VERSION"
 AZURE_OPENAI_API_KEY_ENV: Final[str] = "AZURE_OPENAI_API_KEY"
 
+OPENSRE_LLM_NATIVE_STRUCTURED_OUTPUT_ENV: Final[str] = (
+    "OPENSRE_LLM_NATIVE_STRUCTURED_OUTPUT"
+)
+
 # Custom OpenAI-/Anthropic-compatible gateways (LiteLLM proxy, vLLM, LocalAI,
 # internal model gateways). The base URL is user-supplied, not hard-coded.
 CUSTOM_OPENAI_BASE_URL_ENV: Final[str] = "CUSTOM_OPENAI_BASE_URL"
