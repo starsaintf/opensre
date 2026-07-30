@@ -1,0 +1,94 @@
+name: Integrate PR 4505
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    if: github.event.issue.title == 'RUN PR 4505 INTEGRATION'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Reapply PR 4505 on current upstream main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git remote add upstream https://github.com/Tracer-Cloud/opensre.git || true
+          git fetch upstream main
+          git fetch upstream pull/4505/head:pr-4505
+
+          git switch --detach upstream/main
+          git switch -C integrate-pr-4505-current-main
+
+          set +e
+          git merge --squash pr-4505
+          status=$?
+          set -e
+
+          if [ "$status" -ne 0 ]; then
+            conflicts="$(git diff --name-only --diff-filter=U)"
+            unexpected="$(printf '%s\n' "$conflicts" | grep -v '^config/constants/llm.py$' || true)"
+            if [ -n "$unexpected" ]; then
+              echo "Unexpected merge conflicts:"
+              printf '%s\n' "$unexpected"
+              exit 1
+            fi
+            git checkout --theirs config/constants/llm.py
+            git add config/constants/llm.py
+          fi
+
+          python - <<'PY'
+          from pathlib import Path
+
+          constants = Path('config/constants/llm.py')
+          text = constants.read_text(encoding='utf-8')
+          native = (
+              'OPENSRE_LLM_NATIVE_STRUCTURED_OUTPUT_ENV: Final[str] = (\n'
+              '    "OPENSRE_LLM_NATIVE_STRUCTURED_OUTPUT"\n'
+              ')\n'
+          )
+          if 'OPENSRE_LLM_NATIVE_STRUCTURED_OUTPUT_ENV' not in text:
+              anchor = 'AZURE_OPENAI_API_KEY_ENV: Final[str] = "AZURE_OPENAI_API_KEY"\n'
+              if anchor not in text:
+                  raise SystemExit('native structured-output insertion anchor missing')
+              text = text.replace(anchor, anchor + '\n' + native, 1)
+              constants.write_text(text, encoding='utf-8')
+
+          config = Path('config/config.py')
+          text = config.read_text(encoding='utf-8')
+          text = text.replace('from enum import Enum', 'from enum import StrEnum')
+          text = text.replace('class Environment(Enum):', 'class Environment(StrEnum):')
+          config.write_text(text, encoding='utf-8')
+          PY
+
+          git add -A
+          git diff --cached --check
+
+          uv run pytest \
+            tests/cli/wizard/test_custom_endpoints.py \
+            tests/cli/wizard/test_env_sync.py \
+            tests/cli/wizard/test_validation.py \
+            tests/config/test_constants.py \
+            tests/core/runtime/llm/test_custom_endpoints.py \
+            tests/core/runtime/llm/test_llm_client_provider_registry.py \
+            tests/interactive_shell/test_model_credential_entry.py
+
+          git commit -m "feat(llm): support custom OpenAI- and Anthropic-compatible endpoints (#2682)" \
+            -m "Reapply PR #4505 on top of the latest upstream main and resolve the LLM constants overlap while preserving native structured output, Anthropic prompt caching, cache-marker fallback, current runtime behavior, and all custom endpoint routing and onboarding coverage.
+
+Fixes #2682
+
+Co-authored-by: amsorrytola <154398538+amsorrytola@users.noreply.github.com>"
+
+          git push --force origin HEAD:integrate-pr-4505-current-main
