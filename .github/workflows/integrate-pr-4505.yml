@@ -1,7 +1,7 @@
 name: Integrate PR 4505
 
 on:
-  issues:
+  pull_request:
     types: [opened]
 
 permissions:
@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   integrate:
-    if: github.event.issue.title == 'RUN PR 4505 INTEGRATION'
+    if: github.event.pull_request.title == 'RUN PR 4505 INTEGRATION'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
